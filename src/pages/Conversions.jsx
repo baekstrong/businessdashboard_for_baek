@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { format } from 'date-fns'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line, ComposedChart, Area,
 } from 'recharts'
-import { Link2, Copy, Check, ExternalLink, ShoppingCart, MousePointerClick, Eye, CreditCard, Download } from 'lucide-react'
+import { Link2, Copy, Check, ExternalLink, ShoppingCart, MousePointerClick, Eye, CreditCard, Download, Save, Trash2 } from 'lucide-react'
 import { conversionFunnel, conversionTrend, productConversions, utmLinks } from '../data/mockData'
+import useLocalStorage from '../hooks/useLocalStorage'
 
 const exportToCsv = (filename, headers, rows) => {
   const bom = '\uFEFF'
@@ -36,7 +38,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   )
 }
 
-function UTMGenerator() {
+function UTMGenerator({ onSaveLink }) {
   const [form, setForm] = useState({ url: '', source: 'youtube', medium: 'video', campaign: '' })
   const [copied, setCopied] = useState(false)
 
@@ -48,6 +50,23 @@ function UTMGenerator() {
     navigator.clipboard.writeText(generatedUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSave = () => {
+    if (!form.url || !form.campaign) return
+    const newLink = {
+      id: Date.now(),
+      name: `${form.campaign} - ${form.source}`,
+      url: form.url,
+      utm_source: form.source,
+      utm_medium: form.medium,
+      utm_campaign: form.campaign,
+      clicks: 0,
+      conversions: 0,
+      created: format(new Date(), 'yyyy-MM-dd'),
+    }
+    onSaveLink(newLink)
+    setForm({ url: '', source: 'youtube', medium: 'video', campaign: '' })
   }
 
   return (
@@ -109,8 +128,16 @@ function UTMGenerator() {
           <button
             onClick={handleCopy}
             className="shrink-0 p-2 rounded-lg hover:bg-slate-200 transition-colors"
+            title="복사"
           >
             {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="text-slate-500" />}
+          </button>
+          <button
+            onClick={handleSave}
+            className="shrink-0 p-2 rounded-lg hover:bg-slate-200 transition-colors"
+            title="저장"
+          >
+            <Save size={16} className="text-primary" />
           </button>
         </div>
       )}
@@ -119,6 +146,16 @@ function UTMGenerator() {
 }
 
 export default function Conversions() {
+  const [links, setLinks] = useLocalStorage('utm-links', utmLinks)
+
+  const handleCreateLink = (newLink) => {
+    setLinks(prev => [...prev, newLink])
+  }
+
+  const handleDeleteLink = (id) => {
+    setLinks(prev => prev.filter(l => l.id !== id))
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -262,13 +299,13 @@ export default function Conversions() {
       </div>
 
       {/* UTM Link Generator */}
-      <UTMGenerator />
+      <UTMGenerator onSaveLink={handleCreateLink} />
 
       {/* Active UTM Links */}
       <div className="bg-white rounded-xl border border-border p-5">
         <h3 className="text-sm font-semibold text-slate-900 mb-4">활성 UTM 링크</h3>
         <div className="space-y-3">
-          {utmLinks.map((link) => (
+          {links.map((link) => (
             <div key={link.id} className="flex items-center gap-4 p-3 rounded-lg border border-border hover:shadow-sm transition-shadow">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-800">{link.name}</p>
@@ -285,10 +322,17 @@ export default function Conversions() {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-bold text-emerald-600">
-                    {((link.conversions / link.clicks) * 100).toFixed(1)}%
+                    {link.clicks > 0 ? ((link.conversions / link.clicks) * 100).toFixed(1) : '0.0'}%
                   </p>
                   <p className="text-[10px] text-slate-500">전환율</p>
                 </div>
+                <button
+                  onClick={() => handleDeleteLink(link.id)}
+                  className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                  title="삭제"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             </div>
           ))}
