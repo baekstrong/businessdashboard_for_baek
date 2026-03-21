@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Eye, Heart, Target, Wallet } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -6,7 +7,7 @@ import KpiCard from '../components/KpiCard'
 import ChannelBadge from '../components/ChannelBadge'
 import StatusBadge from '../components/StatusBadge'
 import {
-  kpiData, viewsTrend, channelStats, scheduledContents, CHANNELS,
+  viewsTrend, channelStats, scheduledContents, CHANNELS,
 } from '../data/mockData'
 
 const kpis = [
@@ -14,6 +15,12 @@ const kpis = [
   { key: 'totalEngagement', title: '참여 (좋아요+댓글)', icon: Heart, format: 'number' },
   { key: 'conversionRate', title: '전환율', icon: Target, format: 'percent' },
   { key: 'revenue', title: '매출', icon: Wallet, format: 'currency' },
+]
+
+const PERIOD_OPTIONS = [
+  { label: '7일', value: 7 },
+  { label: '14일', value: 14 },
+  { label: '30일', value: 30 },
 ]
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -31,15 +38,57 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function Dashboard() {
+  const [period, setPeriod] = useState(30)
+
+  const filteredTrend = viewsTrend.slice(-period)
+  const prevTrend = viewsTrend.slice(-period * 2, -period)
+
+  const sumViews = (data) => data.reduce((s, d) => s + d.youtube + d.threads + d.instagram, 0)
+  const totalViews = sumViews(filteredTrend)
+  const prevViews = prevTrend.length > 0 ? sumViews(prevTrend) : totalViews
+  const totalEngagement = Math.round(totalViews * 0.069)
+  const prevEngagement = Math.round(prevViews * 0.069)
+  const conversionRate = +(totalViews / sumViews(viewsTrend) * 100).toFixed(1) || 3.2
+  const prevConversionRate = prevTrend.length > 0 ? +(prevViews / sumViews(viewsTrend) * 100).toFixed(1) : conversionRate
+  const revenue = Math.round(totalViews * 22.1)
+  const prevRevenue = Math.round(prevViews * 22.1)
+
+  const pctChange = (curr, prev) => prev > 0 ? +((curr - prev) / prev * 100).toFixed(1) : 0
+
+  const computedKpi = {
+    totalViews,
+    viewsChange: pctChange(totalViews, prevViews),
+    totalEngagement,
+    engagementChange: pctChange(totalEngagement, prevEngagement),
+    conversionRate,
+    conversionChange: +(conversionRate - prevConversionRate).toFixed(1),
+    revenue,
+    revenueChange: pctChange(revenue, prevRevenue),
+  }
+
   const upcoming = scheduledContents
     .filter((c) => c.status !== 'published')
     .slice(0, 5)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900">대시보드</h2>
-        <p className="text-sm text-slate-500 mt-1">이지스트렝스 채널 성과 한눈에 보기</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">대시보드</h2>
+          <p className="text-sm text-slate-500 mt-1">이지스트렝스 채널 성과 한눈에 보기</p>
+        </div>
+        <div className="flex items-center gap-1 bg-white border border-border rounded-lg p-1">
+          {PERIOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setPeriod(opt.value)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors
+                ${period === opt.value ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -48,8 +97,8 @@ export default function Dashboard() {
           <KpiCard
             key={key}
             title={title}
-            value={kpiData[key]}
-            change={kpiData[`${key.replace('total', '').replace('Rate', '').toLowerCase()}Change`] || kpiData[`${key}Change`]}
+            value={computedKpi[key]}
+            change={computedKpi[`${key.replace('total', '').replace('Rate', '').toLowerCase()}Change`] || computedKpi[`${key}Change`]}
             icon={icon}
             format={format}
           />
@@ -58,9 +107,9 @@ export default function Dashboard() {
 
       {/* Views Trend Chart */}
       <div className="bg-white rounded-xl border border-border p-5">
-        <h3 className="text-sm font-semibold text-slate-900 mb-4">채널별 조회수 추이 (30일)</h3>
+        <h3 className="text-sm font-semibold text-slate-900 mb-4">채널별 조회수 추이 ({period}일)</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={viewsTrend}>
+          <AreaChart data={filteredTrend}>
             <defs>
               <linearGradient id="youtube" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#ff0000" stopOpacity={0.15} />
