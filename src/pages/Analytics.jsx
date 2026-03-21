@@ -3,8 +3,21 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts'
+import { Download } from 'lucide-react'
 import { channelStats, viewsTrend, CHANNELS } from '../data/mockData'
 import ChannelBadge from '../components/ChannelBadge'
+
+const exportToCsv = (filename, headers, rows) => {
+  const bom = '\uFEFF'
+  const csv = bom + [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 const PERIOD_OPTIONS = [
   { label: '7일', value: 7 },
@@ -45,6 +58,12 @@ export default function Analytics() {
   const [period, setPeriod] = useState(30)
   const filteredTrend = viewsTrend.slice(-period)
 
+  const handleExportViews = () => {
+    const headers = ['날짜', 'YouTube', 'Threads', 'Instagram']
+    const rows = filteredTrend.map(d => [d.date, d.youtube, d.threads, d.instagram])
+    exportToCsv(`채널분석_${period}일.csv`, headers, rows)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -52,17 +71,26 @@ export default function Analytics() {
           <h2 className="text-xl font-bold text-slate-900">채널 분석</h2>
           <p className="text-sm text-slate-500 mt-1">유튜브 / 스레드 / 인스타그램 성과 분석</p>
         </div>
-        <div className="flex items-center gap-1 bg-white border border-border rounded-lg p-1">
-          {PERIOD_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setPeriod(opt.value)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors
-                ${period === opt.value ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-white border border-border rounded-lg p-1">
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setPeriod(opt.value)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors
+                  ${period === opt.value ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleExportViews}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-border rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <Download size={14} />
+            CSV 내보내기
+          </button>
         </div>
       </div>
 

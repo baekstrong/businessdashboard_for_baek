@@ -3,8 +3,20 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line, ComposedChart, Area,
 } from 'recharts'
-import { Link2, Copy, Check, ExternalLink, ShoppingCart, MousePointerClick, Eye, CreditCard } from 'lucide-react'
+import { Link2, Copy, Check, ExternalLink, ShoppingCart, MousePointerClick, Eye, CreditCard, Download } from 'lucide-react'
 import { conversionFunnel, conversionTrend, productConversions, utmLinks } from '../data/mockData'
+
+const exportToCsv = (filename, headers, rows) => {
+  const bom = '\uFEFF'
+  const csv = bom + [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 const FUNNEL_COLORS = ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff']
 
@@ -188,7 +200,20 @@ export default function Conversions() {
 
       {/* Product Conversions Table */}
       <div className="bg-white rounded-xl border border-border p-5">
-        <h3 className="text-sm font-semibold text-slate-900 mb-4">상품별 전환</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-900">상품별 전환</h3>
+          <button
+            onClick={() => {
+              const headers = ['상품', '클릭', '구매', '전환율(%)', '매출(원)']
+              const rows = productConversions.map(p => [p.name, p.clicks, p.conversions, p.rate, p.revenue])
+              exportToCsv('상품별_전환.csv', headers, rows)
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-border rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <Download size={14} />
+            CSV 내보내기
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
