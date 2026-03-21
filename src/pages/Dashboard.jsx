@@ -70,7 +70,8 @@ export default function Dashboard() {
     revenueChange: pctChange(revenue, prevRevenue),
   }
 
-  const upcoming = scheduledContents
+  const [contents] = useLocalStorage('dashboard-contents', scheduledContents)
+  const upcoming = contents
     .filter((c) => c.status !== 'published')
     .slice(0, 5)
 
