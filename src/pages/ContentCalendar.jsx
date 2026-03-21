@@ -16,6 +16,7 @@ export default function ContentCalendar() {
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [newContent, setNewContent] = useState({ ...defaultContent })
+  const [dragOverDate, setDragOverDate] = useState(null)
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(monthStart)
@@ -113,9 +114,21 @@ export default function ContentCalendar() {
                 <div
                   key={i}
                   onClick={() => setSelectedDate(day)}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                  onDragEnter={(e) => { e.preventDefault(); setDragOverDate(format(day, 'yyyy-MM-dd')) }}
+                  onDragLeave={() => setDragOverDate(null)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const contentId = Number(e.dataTransfer.getData('contentId'))
+                    setContents(prev => prev.map(c =>
+                      c.id === contentId ? { ...c, date: format(day, 'yyyy-MM-dd') } : c
+                    ))
+                    setDragOverDate(null)
+                  }}
                   className={`bg-white min-h-[80px] p-1.5 cursor-pointer transition-colors
                     ${!isCurrentMonth ? 'opacity-40' : ''}
                     ${isSelected ? 'ring-2 ring-primary ring-inset' : 'hover:bg-slate-50'}
+                    ${dragOverDate === format(day, 'yyyy-MM-dd') ? 'bg-primary/10 ring-2 ring-primary/30 ring-inset' : ''}
                   `}
                 >
                   <span
@@ -128,7 +141,12 @@ export default function ContentCalendar() {
                     {dayContents.slice(0, 3).map((c) => (
                       <div
                         key={c.id}
-                        className="text-[10px] leading-tight px-1 py-0.5 rounded truncate"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('contentId', String(c.id))
+                          e.dataTransfer.effectAllowed = 'move'
+                        }}
+                        className="text-[10px] leading-tight px-1 py-0.5 rounded truncate cursor-grab active:cursor-grabbing"
                         style={{
                           backgroundColor: CHANNELS[c.channel]?.bg,
                           color: CHANNELS[c.channel]?.color,
