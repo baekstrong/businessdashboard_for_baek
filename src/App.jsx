@@ -1,11 +1,12 @@
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
-import { LayoutDashboard, Calendar, BarChart3, ShoppingCart, Trophy, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Calendar, BarChart3, ShoppingCart, Trophy, Users, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import Dashboard from './pages/Dashboard'
 import ContentCalendar from './pages/ContentCalendar'
 import Analytics from './pages/Analytics'
 import Conversions from './pages/Conversions'
 import ContentRanking from './pages/ContentRanking'
+import MemberFunnel from './pages/MemberFunnel'
 
 const navItems = [
   { path: '/dashboard', label: '대시보드', icon: LayoutDashboard },
@@ -13,6 +14,7 @@ const navItems = [
   { path: '/analytics', label: '채널 분석', icon: BarChart3 },
   { path: '/conversions', label: '구매 전환', icon: ShoppingCart },
   { path: '/ranking', label: '성과 랭킹', icon: Trophy },
+  { path: '/funnel', label: '회원 전환', icon: Users },
 ]
 
 export default function App() {
@@ -99,6 +101,7 @@ export default function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/conversions" element={<Conversions />} />
             <Route path="/ranking" element={<ContentRanking />} />
+            <Route path="/funnel" element={<MemberFunnel />} />
           </Routes>
         </main>
       </div>
