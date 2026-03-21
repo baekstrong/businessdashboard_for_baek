@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Clock, FileText } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Clock, FileText, Trash2 } from 'lucide-react'
 import ChannelBadge from '../components/ChannelBadge'
 import StatusBadge from '../components/StatusBadge'
 import { scheduledContents, CHANNELS } from '../data/mockData'
+import useLocalStorage from '../hooks/useLocalStorage'
+
+const defaultContent = { title: '', channel: 'youtube', date: format(new Date(), 'yyyy-MM-dd'), time: '12:00', type: '스레드', status: 'draft' }
 
 export default function ContentCalendar() {
+  const [contents, setContents] = useLocalStorage('dashboard-contents', scheduledContents)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showModal, setShowModal] = useState(false)
-  const [newContent, setNewContent] = useState({
-    title: '', channel: 'youtube', date: format(new Date(), 'yyyy-MM-dd'),
-    time: '12:00', type: '스레드', status: 'draft',
-  })
+  const [editingId, setEditingId] = useState(null)
+  const [newContent, setNewContent] = useState({ ...defaultContent })
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(monthStart)
@@ -28,9 +30,37 @@ export default function ContentCalendar() {
   }
 
   const getContentsForDay = (date) =>
-    scheduledContents.filter((c) => c.date === format(date, 'yyyy-MM-dd'))
+    contents.filter((c) => c.date === format(date, 'yyyy-MM-dd'))
 
   const selectedContents = getContentsForDay(selectedDate)
+
+  const handleSave = () => {
+    if (!newContent.title.trim()) return
+    if (editingId) {
+      setContents(prev => prev.map(c => c.id === editingId ? { ...c, ...newContent } : c))
+    } else {
+      setContents(prev => [...prev, { ...newContent, id: Date.now() }])
+    }
+    setEditingId(null)
+    setNewContent({ ...defaultContent, date: format(selectedDate, 'yyyy-MM-dd') })
+    setShowModal(false)
+  }
+
+  const handleEdit = (content) => {
+    setEditingId(content.id)
+    setNewContent({ title: content.title, channel: content.channel, date: content.date, time: content.time, type: content.type, status: content.status })
+    setShowModal(true)
+  }
+
+  const handleDelete = (id) => {
+    setContents(prev => prev.filter(c => c.id !== id))
+  }
+
+  const handleCloseModal = () => {
+    setEditingId(null)
+    setNewContent({ ...defaultContent, date: format(selectedDate, 'yyyy-MM-dd') })
+    setShowModal(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -40,7 +70,11 @@ export default function ContentCalendar() {
           <p className="text-sm text-slate-500 mt-1">콘텐츠 예약 발행 관리</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setEditingId(null)
+            setNewContent({ ...defaultContent, date: format(selectedDate, 'yyyy-MM-dd') })
+            setShowModal(true)
+          }}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
         >
           <Plus size={16} />
@@ -70,7 +104,7 @@ export default function ContentCalendar() {
               </div>
             ))}
             {days.map((day, i) => {
-              const contents = getContentsForDay(day)
+              const dayContents = getContentsForDay(day)
               const isToday = isSameDay(day, new Date())
               const isSelected = isSameDay(day, selectedDate)
               const isCurrentMonth = isSameMonth(day, currentMonth)
@@ -91,7 +125,7 @@ export default function ContentCalendar() {
                     {format(day, 'd')}
                   </span>
                   <div className="mt-1 space-y-0.5">
-                    {contents.slice(0, 3).map((c) => (
+                    {dayContents.slice(0, 3).map((c) => (
                       <div
                         key={c.id}
                         className="text-[10px] leading-tight px-1 py-0.5 rounded truncate"
@@ -103,8 +137,8 @@ export default function ContentCalendar() {
                         {c.title}
                       </div>
                     ))}
-                    {contents.length > 3 && (
-                      <p className="text-[10px] text-slate-400 px-1">+{contents.length - 3}개</p>
+                    {dayContents.length > 3 && (
+                      <p className="text-[10px] text-slate-400 px-1">+{dayContents.length - 3}개</p>
                     )}
                   </div>
                 </div>
@@ -130,7 +164,8 @@ export default function ContentCalendar() {
               <p className="text-sm">이 날에 예정된 콘텐츠가 없습니다</p>
               <button
                 onClick={() => {
-                  setNewContent((prev) => ({ ...prev, date: format(selectedDate, 'yyyy-MM-dd') }))
+                  setEditingId(null)
+                  setNewContent({ ...defaultContent, date: format(selectedDate, 'yyyy-MM-dd') })
                   setShowModal(true)
                 }}
                 className="mt-3 text-xs text-primary hover:underline"
@@ -141,10 +176,25 @@ export default function ContentCalendar() {
           ) : (
             <div className="space-y-3">
               {selectedContents.map((content) => (
-                <div key={content.id} className="p-3 rounded-lg border border-border hover:shadow-sm transition-shadow">
+                <div
+                  key={content.id}
+                  onClick={() => handleEdit(content)}
+                  className="p-3 rounded-lg border border-border hover:shadow-sm transition-shadow cursor-pointer"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <ChannelBadge channel={content.channel} />
-                    <StatusBadge status={content.status} />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={content.status} />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(content.id)
+                        }}
+                        className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-sm font-medium text-slate-800">{content.title}</p>
                   <div className="flex items-center gap-3 mt-2">
@@ -161,11 +211,11 @@ export default function ContentCalendar() {
         </div>
       </div>
 
-      {/* Add Content Modal */}
+      {/* Add/Edit Content Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={handleCloseModal}>
           <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-slate-900 mb-4">콘텐츠 추가</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">{editingId ? '콘텐츠 수정' : '콘텐츠 추가'}</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">제목</label>
@@ -226,18 +276,31 @@ export default function ContentCalendar() {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">상태</label>
+                <select
+                  value={newContent.status}
+                  onChange={(e) => setNewContent({ ...newContent, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="draft">초안</option>
+                  <option value="scheduled">예약됨</option>
+                  <option value="review">검토중</option>
+                  <option value="published">발행완료</option>
+                </select>
+              </div>
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
                   className="flex-1 px-4 py-2 border border-border rounded-lg text-sm text-slate-700 hover:bg-slate-50"
                 >
                   취소
                 </button>
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={handleSave}
                   className="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark"
                 >
-                  추가
+                  {editingId ? '수정' : '추가'}
                 </button>
               </div>
             </div>
