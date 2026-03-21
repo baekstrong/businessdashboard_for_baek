@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Eye, Heart, Target, Wallet } from 'lucide-react'
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import KpiCard from '../components/KpiCard'
 import ChannelBadge from '../components/ChannelBadge'
 import StatusBadge from '../components/StatusBadge'
+import useLocalStorage from '../hooks/useLocalStorage'
 import {
-  viewsTrend, channelStats, scheduledContents, CHANNELS,
+  viewsTrend, channelStats, scheduledContents, CHANNELS, revenueGoals,
 } from '../data/mockData'
 
 const kpis = [
@@ -39,6 +40,9 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Dashboard() {
   const [period, setPeriod] = useState(30)
+  const [goals, setGoals] = useLocalStorage('revenue-goals', revenueGoals)
+  const [editingGoal, setEditingGoal] = useState(false)
+  const [goalInput, setGoalInput] = useState('')
 
   const filteredTrend = viewsTrend.slice(-period)
   const prevTrend = viewsTrend.slice(-period * 2, -period)
@@ -104,6 +108,113 @@ export default function Dashboard() {
           />
         ))}
       </div>
+
+      {/* Revenue Goal Tracking */}
+      {(() => {
+        const currentMonth = new Date().toISOString().slice(0, 7)
+        const currentGoal = goals.find((g) => g.month === currentMonth) || goals[goals.length - 1]
+        const achievementRate = Math.round((currentGoal.actual / currentGoal.goal) * 100)
+        const progressWidth = Math.min(achievementRate, 100)
+
+        const chartData = goals.map((g) => ({
+          month: g.month.slice(5) + '월',
+          목표: g.goal,
+          실제: g.actual,
+        }))
+
+        const handleGoalEdit = () => {
+          setEditingGoal(true)
+          setGoalInput(String(currentGoal.goal))
+        }
+
+        const handleGoalSave = () => {
+          const newGoal = parseInt(goalInput, 10)
+          if (!isNaN(newGoal) && newGoal > 0) {
+            setGoals(goals.map((g) =>
+              g.month === currentGoal.month ? { ...g, goal: newGoal } : g
+            ))
+          }
+          setEditingGoal(false)
+        }
+
+        const handleGoalKeyDown = (e) => {
+          if (e.key === 'Enter') handleGoalSave()
+          if (e.key === 'Escape') setEditingGoal(false)
+        }
+
+        return (
+          <div className="bg-white rounded-xl border border-border p-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-4">이번 달 매출 목표</h3>
+            <div className="grid lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">목표 금액</span>
+                    {editingGoal ? (
+                      <input
+                        type="number"
+                        value={goalInput}
+                        onChange={(e) => setGoalInput(e.target.value)}
+                        onBlur={handleGoalSave}
+                        onKeyDown={handleGoalKeyDown}
+                        autoFocus
+                        className="w-36 px-2 py-1 text-right text-sm font-semibold border border-primary rounded-md outline-none"
+                      />
+                    ) : (
+                      <button
+                        onClick={handleGoalEdit}
+                        className="font-semibold text-slate-800 hover:text-primary transition-colors cursor-pointer"
+                      >
+                        {currentGoal.goal.toLocaleString()}원
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">현재 매출</span>
+                    <span className="font-semibold text-slate-800">{currentGoal.actual.toLocaleString()}원</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-slate-500">달성률</span>
+                    <span className={`text-sm font-bold ${achievementRate >= 100 ? 'text-green-600' : achievementRate >= 70 ? 'text-amber-600' : 'text-red-500'}`}>
+                      {achievementRate}%
+                    </span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${achievementRate >= 100 ? 'bg-green-500' : achievementRate >= 70 ? 'bg-amber-500' : 'bg-red-400'}`}
+                      style={{ width: `${progressWidth}%` }}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  {achievementRate >= 100
+                    ? '목표를 달성했습니다!'
+                    : `목표까지 ${(currentGoal.goal - currentGoal.actual).toLocaleString()}원 남았습니다.`}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-slate-500 mb-2">월별 목표 vs 실제</p>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`} />
+                    <Tooltip formatter={(v) => `${v.toLocaleString()}원`} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px' }} />
+                    <Bar dataKey="목표" fill="#cbd5e1" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="실제" fill="#6366f1" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Views Trend Chart */}
       <div className="bg-white rounded-xl border border-border p-5">

@@ -182,6 +182,13 @@ export const productConversions = [
   { name: '운동 프로그램 PDF', clicks: 3240, conversions: 89, revenue: 234000, rate: 2.75 },
 ]
 
+// 매출 목표 데이터
+export const revenueGoals = [
+  { month: '2026-01', goal: 3000000, actual: 2640000 },
+  { month: '2026-02', goal: 3500000, actual: 3180000 },
+  { month: '2026-03', goal: 4000000, actual: 2840000 },
+]
+
 // UTM 링크 데이터
 export const utmLinks = [
   {
